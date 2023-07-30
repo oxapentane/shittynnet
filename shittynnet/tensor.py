@@ -36,7 +36,7 @@ class Tensor:
   # Vector/matrix ops
   def dot(self, other):
     other = other if isinstance(other, Tensor) else Tensor(other)
-    out = Tensor(np.matmul(self.data, other.data), (self, other), 'dot')
+    out = Tensor(np.matmul(self.data, other.data), (self, other), 'matmul')
     def _backward():
       self.grad += np.matmul(out.grad, other.data.T)
       other.grad += np.matmul(self.data.T, out.grad)
@@ -46,11 +46,11 @@ class Tensor:
   def T(self):
     out = Tensor(self.data.T, (self,), 'T')
     def _backward():
-      self.grad = out.grad.T
+      self.grad += out.grad.T
     self._backward = _backward
     return out
 
-  # element-wise ops (broadcasted for arrays)
+  # element-wise binary ops (broadcasted for arrays)
   def __add__(self, other):
     other = other if isinstance(other, Tensor) else Tensor(other)
     out = Tensor(np.add(self.data, other.data), (self, other), '+')
@@ -73,6 +73,7 @@ class Tensor:
 
     return out
 
+  # element-wise unary ops
   def __pow__(self, exponent):
     assert isinstance(exponent, (float, int)), "power implemented only for float and int exponents"
 
@@ -80,32 +81,24 @@ class Tensor:
 
     def _backward():
       self.grad += (exponent * self.data**(exponent - 1)) * out.grad
-    self._backward = _backward
+    out._backward = _backward
 
     return out
     
   # Activation functions
   def relu(self):
-    data = self.data
-    data[data<0] = 0
-    out = Tensor(data, (self,), 'ReLU')
+    out = Tensor(self.data * (self.data > 0), (self,), 'ReLU')
 
     def _backward():
-      pass
+      self.grad += out.grad * (out.data > 0)
     out._backward = _backward
 
     return out
 
-  def softmax(self):
-    assert len(self._shape) == 1, f"softmax defined for vectors, got shape {self._shape}"
-    out = self.exp()
-    raise NotImplementedError
-
+  def softmax(self): raise NotImplementedError
 
   # generation helpers
-  def uniform(shape, low=-1, high=1):
-    assert len(shape) == 2, f"matricies only!, got shape: {shape}"
-    return Tensor((high - low) * np.random.rand(*shape) + low)
+  def uniform(shape, low=-1, high=1): return Tensor((high - low) * np.random.rand(*shape) + low)
 
   # free real estate
   def __rmul__(self, other): return  self * other
@@ -115,14 +108,11 @@ class Tensor:
   def __neg__(self): return self * -1
   def __truediv__(self, other): return self * other**-1
   def __rtruediv__(self, other): return other * self**-1
-
+  # free real estate activations
+  def sigm(self): return 1 / (1 + (-self).exp())
   # internal grad helpers
   def _zero_grad(self): return np.zeros(self._shape)
   def _ones_grad(self): return np.ones(self._shape)
-  def _val_grad(self, val): return np.ones(self._shape) * val
-
-  # internal rand helpers
-  #def _rand(shape): return np.random.rand(*shape)
-
+  def _val_grad(self, val): return self._ones_grad() * val
   # formatter for pretty printing
   def __repr__(self): return f'Tensor(shape={self._shape}, grad={self.grad}, _op={self._op},\n{self.data}\n)\n'
