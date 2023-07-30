@@ -1,7 +1,7 @@
 import numpy as np
 
 class Tensor:
-  def __init__(self, data, _prev = (), _op='', _npseed=1773):
+  def __init__(self, data, _prev = (), _op=''):
     if not hasattr(data, "__len__"): data = [data] # for simplicity storing everything as matrices
     self.data = data if isinstance(data, np.ndarray) and len(data.shape) == 2 else np.atleast_2d(np.asarray(data))
     self._shape = np.shape(self.data)
@@ -47,7 +47,7 @@ class Tensor:
     out = Tensor(self.data.T, (self,), 'T')
     def _backward():
       self.grad += out.grad.T
-    self._backward = _backward
+    out._backward = _backward
     return out
 
   # element-wise binary ops (broadcasted for arrays)
@@ -76,7 +76,6 @@ class Tensor:
   # element-wise unary ops
   def __pow__(self, exponent):
     assert isinstance(exponent, (float, int)), "power implemented only for float and int exponents"
-
     out = Tensor(self.data ** exponent, (self,), f'**{exponent}')
 
     def _backward():
@@ -88,7 +87,7 @@ class Tensor:
   def exp(self):
     out = Tensor(np.exp(self.data), (self,), 'exp')
     def _backward():
-      self.grad = np.exp(self.data) * out.grad
+      self.grad += np.exp(self.data) * out.grad
     out._backward = _backward
     return out
     
