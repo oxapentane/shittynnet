@@ -1,5 +1,5 @@
 import numpy as np
-
+# quite some bits are copypasted^W were heavily inspired by https://github.com/karpathy/micrograd
 class Tensor:
   def __init__(self, data, _prev = (), _op=''):
     if not hasattr(data, "__len__"): data = [data] # for simplicity storing everything as matrices
@@ -7,30 +7,18 @@ class Tensor:
     self._shape = np.shape(self.data)
     assert len(self._shape) == 2, f"shape doesn't seem to be 2D, got {self._shape}"
     # autograd bits
-    self.grad = self._zero_grad()
+    self._zero_grad()
     self._backward = lambda: None
     self._prev = set(_prev)
     self._op = _op
 
+  # Gradient operations
+
   # the backpropogator
   def backward(self):
     assert self._shape == (1,1), f"backward() can only be called on a scalar tensor, got shape: {self._shape}"
-
-    # build the topo order of all the previous tensors
-    topo = []
-    visited = set()
-    def build_topo(v):
-      if v not in visited:
-        visited.add(v)
-        for child in v._prev:
-          build_topo(child)
-        topo.append(v)
-    build_topo(self)
-
-    # Set own gradient to 1
-    self.grad = self._ones_grad()
-    # go through the vars and calcualte the grad
-    for v in reversed(topo):
+    self._one_grad()
+    for v in self._build_rtopo():
       v._backward()
 
   # Vector/matrix ops
@@ -56,8 +44,8 @@ class Tensor:
     out = Tensor(np.add(self.data, other.data), (self, other), '+')
 
     def _backward():
-      self.grad += out._val_grad(out.grad)
-      other.grad += out._val_grad(out.grad)
+      self.grad += out._val_shape(out.grad)
+      other.grad += out._val_shape(out.grad)
     out._backward = _backward
 
     return out
@@ -67,8 +55,8 @@ class Tensor:
     out = Tensor(self.data * other.data, (self, other), '*')
 
     def _backward():
-      self.grad += self._val_grad(out.grad) * other.data
-      other.grad += self._val_grad(out.grad) * self.data
+      self.grad += self._val_shape(out.grad) * other.data
+      other.grad += self._val_shape(out.grad) * self.data
     out._backward = _backward
 
     return out
@@ -101,6 +89,7 @@ class Tensor:
 
     return out
 
+  def sigm(self): return 1 / (1 + (-self).exp())
   def softmax(self): raise NotImplementedError
 
   # generation helpers
@@ -114,11 +103,22 @@ class Tensor:
   def __neg__(self): return self * -1
   def __truediv__(self, other): return self * other**-1
   def __rtruediv__(self, other): return other * self**-1
-  # free real estate activations
-  def sigm(self): return 1 / (1 + (-self).exp())
   # internal grad helpers
-  def _zero_grad(self): return np.zeros(self._shape)
-  def _ones_grad(self): return np.ones(self._shape)
-  def _val_grad(self, val): return self._ones_grad() * val
+  def _zero_grad(self): self.grad = np.zeros(self._shape)
+  def _one_grad(self): self.grad =  np.ones(self._shape)
+  def _val_shape(self, val): return np.ones(self._shape) * val
+  def _build_topo(self):
+    topo = []
+    visited = set()
+    def build_topo(v):
+      if v not in visited:
+        visited.add(v)
+        for child in v._prev:
+          build_topo(child)
+        topo.append(v)
+    build_topo(self)
+    return topo
+  def _build_rtopo(self): return reversed(self._build_topo())
+
   # formatter for pretty printing
   def __repr__(self): return f'Tensor(shape={self._shape}, grad={self.grad}, _op={self._op},\n{self.data}\n)\n'
