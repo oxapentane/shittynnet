@@ -93,7 +93,7 @@ class Tensor:
   def softmax(self): raise NotImplementedError
 
   # generation helpers
-  def uniform(shape, low=-1, high=1): return Tensor((high - low) * np.random.rand(*shape) + low)
+  def uniform(shape, low=-1, high=1, _seed=None): return Tensor((high - low) * np.random.default_rng(_seed).random(shape) + low)
 
   # free real estate
   def __rmul__(self, other): return  self * other
