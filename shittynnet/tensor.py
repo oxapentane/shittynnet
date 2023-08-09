@@ -1,11 +1,13 @@
 import numpy as np
+
 # quite some bits are copypasted^W were heavily inspired by https://github.com/karpathy/micrograd
 class Tensor:
-  def __init__(self, data, _prev = (), _op=''):
+  def __init__(self, data, _prev = (), _op='', _type=np.float16):
     if not hasattr(data, "__len__"): data = [data] # for simplicity storing everything as matrices
-    self.data = data if isinstance(data, np.ndarray) and len(data.shape) == 2 else np.atleast_2d(np.asarray(data))
+    self.data = data if isinstance(data, np.ndarray) and len(data.shape) == 2 else np.atleast_2d(np.asarray(data)).astype(_type)
     self._shape = np.shape(self.data)
     assert len(self._shape) == 2, f"shape doesn't seem to be 2D, got {self._shape}"
+    self._type = _type
     # autograd bits
     self._zero_grad()
     self._backward = lambda: None
