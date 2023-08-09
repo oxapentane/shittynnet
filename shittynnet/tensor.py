@@ -32,6 +32,7 @@ class Tensor:
       other.grad += np.matmul(self.data.T, out.grad)
     out._backward = _backward
     return out
+  def __matmul__(self, other): return self.dot(other)
 
   def T(self):
     out = Tensor(self.data.T, (self,), 'T')
@@ -98,6 +99,7 @@ class Tensor:
   def uniform(shape, low=-1, high=1, _seed=None): return Tensor((high - low) * np.random.default_rng(_seed).random(shape) + low)
 
   # free real estate
+  def __rmatmul__(self, other): other.dot(self)
   def __rmul__(self, other): return  self * other
   def __sub__(self, other): return  self + (-other)
   def __rsub__(self, other): return  (-self) + other
